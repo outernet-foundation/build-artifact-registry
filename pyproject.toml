@@ -27,11 +27,5 @@ venv = ".venv"
 typeCheckingMode = "strict"
 include = ["src"]
 
-[tool.deptry]
-# self-declaration: bridges the deptry root-scan DEP003 misclassification until the sidecar
-# relocks onto python-devkit's deptry-src fix; deleted in the Phase 7 fleet sweep
-# (plan-devkit-rearchitecture.md)
-known_first_party = ["build_artifact_registry"]
-
 [tool.python-devkit.preflight]
 tests = false
