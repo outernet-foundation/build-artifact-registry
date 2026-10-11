@@ -19,8 +19,10 @@ line.
 
 ## Release flow
 
-release-devkit's `AGENTS.md` owns the three-workflow contract; this repo follows it unchanged.
-Repo-specific facts: release-devkit (renaming to github-actions-devkit) runtime-depends on this
+github-actions-toolkit's `AGENTS.md` owns the consumer workflow contract (integrate =
+preflight + update-pr-draft-release reusables, labeled-only merge-gate, release composite with
+the `channel` input, all pinned to one toolkit SHA); this repo follows it unchanged.
+Repo-specific facts: github-actions-toolkit runtime-depends on this
 package, so it is never a project dependency here — a project-level edge would be a cycle; and
 API-breaking changes ship with a manually bumped `major_minor` (patch-auto assumes additive
 changes).
@@ -29,12 +31,13 @@ This repo cannot take python-devkit as a dependency (python-devkit's current lin
 runtime-depends on this family; uv's resolver rejects the name-shadowing as a
 self-dependency), so its own preflight consumes python-devkit through the `tools/devkit/`
 sidecar: a `package = false` project named `build-artifact-registry-devkit` that
-exact-pins `python-devkit` — the suffixed root name stays distinct from every distribution in
+floors `python-devkit` (`>=0.3.0.dev0`) — the suffixed root name stays distinct from every distribution in
 python-devkit's closure, letting the dependency resolve to PyPI inside the sidecar's isolated
 env with no shadowing. `--project` uses the sidecar env but leaves cwd at the repo root, so
 preflight's child `uv run` calls (sync, ruff, basedpyright, …) re-discover this repo's real
 project and run in its `.venv`. The committed `tools/devkit/uv.lock` is the single version
-surface, checked with `uv lock --check --project tools/devkit`.
+surface, asserted by `--locked` on every run; the harness-invoked `scripts/preflight.py` is the
+two-line bridge that invokes the sidecar.
 
 ## Shape
 
@@ -69,3 +72,4 @@ surface, checked with `uv lock --check --project tools/devkit`.
 ## See also
 
 - [`bashrun`](https://github.com/outernet-foundation/bashrun) — the shell-exec helpers everything here shells out through.
+- [`github-actions-toolkit`](https://github.com/outernet-foundation/github-actions-toolkit) — the platform binding whose consumer workflow contract this repo follows.
