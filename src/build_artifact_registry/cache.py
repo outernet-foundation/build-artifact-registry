@@ -12,6 +12,7 @@ from bashrun.bash import bash, bash_output, bash_pipe
 from build_artifact_registry.registry_auth import ensure_registry_login
 
 REFUSAL_MARKERS = ("denied", "unauthorized", "forbidden", "authentication required")
+ABSENT_REPOSITORY_MARKERS = ("name unknown", "repository name not known to registry")
 
 
 def restore(
@@ -95,6 +96,28 @@ def save(registry: str, name: str, tag: str, source_directory: Path, paths: list
     bash(f"oras push {reference} {archive_name}:application/vnd.build-artifact-registry.cache.v1+zstd", cwd=staging)
     archive_path.unlink()
     print(f"Saved cache: {reference}")
+
+
+def promote_scope(registry: str, name: str, pr_number: int) -> list[str]:
+    # OCI repository names must be lowercase; GitHub repository names preserve case
+    registry = registry.lower()
+    ensure_registry_login(registry)
+    scope_suffix = f"-pr-{pr_number}"
+    reference = f"{registry}/{name}"
+    try:
+        listing = bash_output(f"oras repo tags {reference}")
+    except CalledProcessError as failure:
+        failure_details = f"{failure.output or ''}\n{failure.stderr or ''}".lower()
+        if any(marker in failure_details for marker in ABSENT_REPOSITORY_MARKERS):
+            return []
+        raise
+    promoted: list[str] = []
+    for source_tag in [tag for tag in listing.split() if tag.endswith(scope_suffix)]:
+        dev_tag = f"{source_tag.removesuffix(scope_suffix)}-dev"
+        bash(f"oras tag {reference}:{source_tag} {dev_tag}")
+        print(f"Promoted cache tag: {name}:{source_tag} -> {dev_tag}")
+        promoted.append(dev_tag)
+    return promoted
 
 
 def _posix(path: Path) -> str:

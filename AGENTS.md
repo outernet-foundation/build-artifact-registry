@@ -20,8 +20,9 @@ line.
 ## Release flow
 
 github-actions-toolkit's `AGENTS.md` owns the consumer workflow contract (integrate =
-preflight + update-pr-draft-release reusables, labeled-only merge-gate, release composite with
-the `channel` input, all pinned to one toolkit SHA); this repo follows it unchanged.
+preflight + release-pr-builds reusables, labeled-only merge-gate, closed-PR release sweep,
+release composite with the `channel` input, all pinned to one toolkit SHA); this repo follows
+it unchanged.
 Repo-specific facts: github-actions-toolkit runtime-depends on this
 package, so it is never a project dependency here — a project-level edge would be a cycle; and
 API-breaking changes ship with a manually bumped `major_minor` (patch-auto assumes additive
@@ -45,7 +46,7 @@ two-line bridge that invokes the sidecar.
 |---|---|
 | `builds.py` | OCI build artifacts over ORAS, separate from the cache: `build_reference(registry, project, platform, tag)` composes the shared shelf address `{registry}/{project}-{platform}:{tag}` (lowercased end-to-end); `push_build` pushes files as layers stamped `application/vnd.build-artifact-registry.build.v1+raw`; `pull_artifact` pulls immutable artifacts (no fallback tags), returns `True`, and raises when absent unless `required=False` makes absence a `False` return — the one-call form for consumers whose artifact is legitimately missing; `list_build_tags` queries. |
 | `registry_auth.py` | `ensure_registry_login(registry, *, username, token)` — the credential chain: explicit parameter → `REGISTRY_USERNAME`/`REGISTRY_TOKEN` environment → ambient docker config (credential helper / store / auth entry). Prints which source resolved; no `GITHUB_`-shaped input anywhere. |
-| `cache.py` | OCI artifact cache over ORAS: `restore(registry, name, tag, target, *, required, fallback_tags)` pulls a tar+zstd artifact by tag with fallbacks; `save(registry, name, tag, source, paths)` packs glob-resolved paths and pushes. Both authenticate through the neutral chain on entry — the same door `builds` uses — so no caller can reach an ORAS call unauthenticated. A registry refusal (denied/unauthorized/forbidden in the pull output) is a loud fatal, never a miss; only absent or transient failures fall through the fallback chain. Registry names are lowercased (OCI rule vs GitHub case). Best-effort miss semantics — the deliberate contrast with `builds`. |
+| `cache.py` | OCI artifact cache over ORAS: `restore(registry, name, tag, target, *, required, fallback_tags)` pulls a tar+zstd artifact by tag with fallbacks; `save(registry, name, tag, source, paths)` packs glob-resolved paths and pushes; `promote_scope(registry, name, pr_number)` lists the repository's tags and aliases every tag ending `-pr-{N}` (exact PR number) onto the `-dev` spelling via `oras tag` — same digest, metadata-only — returning the dev tags it created (a repository the registry reports absent is an empty promotion, not an error, so non-cache consumers no-op; failures raise to the caller, which owns best-effort policy). All three authenticate through the neutral chain on entry — the same door `builds` uses — so no caller can reach an ORAS call unauthenticated. A registry refusal (denied/unauthorized/forbidden in the pull output) is a loud fatal, never a miss; only absent or transient failures fall through the fallback chain. Registry names are lowercased (OCI rule vs GitHub case). Best-effort miss semantics — the deliberate contrast with `builds`. |
 | `setup_oras.py` | `install_oras(version, *, registry)` — best-effort ORAS CLI provisioning (downloads to `~/.local/bin` / `~/.cache/build-artifact-registry/oras` when absent; clear failure when un-installable) plus zstd provisioning; when `registry` is passed it logs in through the neutral credential chain, otherwise provisioning is registry-free. |
 
 ## Constraints
