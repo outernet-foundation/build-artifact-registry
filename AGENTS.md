@@ -20,8 +20,9 @@ line.
 ## Release flow
 
 github-actions-toolkit's `AGENTS.md` owns the consumer workflow contract (integrate =
-preflight + update-pr-draft-release reusables, labeled-only merge-gate, release composite with
-the `channel` input, all pinned to one toolkit SHA); this repo follows it unchanged.
+preflight + release-pr-builds reusables, labeled-only merge-gate, closed-PR release sweep,
+release composite with the `channel` input, all pinned to one toolkit SHA); this repo follows
+it unchanged.
 Repo-specific facts: github-actions-toolkit runtime-depends on this
 package, so it is never a project dependency here — a project-level edge would be a cycle; and
 API-breaking changes ship with a manually bumped `major_minor` (patch-auto assumes additive
